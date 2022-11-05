@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.18.1)
 project("xrstreamer")
+SET(CMAKE_CXX_STANDARD 17)
 get_filename_component(OVR_MOBILE_SDK_DIR "$ENV{OVR_MOBILE_SDK_DIR}" ABSOLUTE)
 # file(TO_CMAKE_PATH "${OVR_MOBILE_SDK_DIR}" OVR_MOBILE_SDK_DIR)
 get_filename_component(OPENXR_SDK_DIR "$ENV{OPENXR_SDK_DIR}" ABSOLUTE)
@@ -145,29 +146,19 @@ target_include_directories(
                         ${OVR_MOBILE_SDK_DIR}/1stParty/utilities/include)
 target_link_libraries(${TARGET_NAME} PUBLIC OVR minizip stb ktx)
 
-set(SAMPLE_FRAMEWORK_DIR ${OVR_MOBILE_SDK_DIR}/SampleXrFramework/Src)
-set(TARGET_NAME SampleXrFramewok)
-add_library(
-  ${TARGET_NAME} STATIC
-  ${SAMPLE_FRAMEWORK_DIR}/XrApp.cpp
-  ${SAMPLE_FRAMEWORK_DIR}/Input/HandMaskRenderer.cpp
-  ${SAMPLE_FRAMEWORK_DIR}/Input/HandRenderer.cpp
-  ${SAMPLE_FRAMEWORK_DIR}/Render/Framebuffer.cpp)
-target_include_directories(${TARGET_NAME} PUBLIC ${SAMPLE_FRAMEWORK_DIR})
-target_link_libraries(${TARGET_NAME} PUBLIC native_app_glue OVR SampleCommon
-                                            openxr_loader)
-
 #
 # xrstreamer
 #
 set(TARGET_NAME xrstreamer)
-add_library(${TARGET_NAME} SHARED ${OVR_MOBILE_SDK_DIR}/XrSamples/XrHandsFB/Src/main.cpp)
+add_library(${TARGET_NAME} SHARED main.cpp XrApp.cpp Input/HandMaskRenderer.cpp
+                                  Input/HandRenderer.cpp Render/Framebuffer.cpp)
+target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_compile_options(${TARGET_NAME} PRIVATE -Wall -Werror)
 target_link_libraries(
   ${TARGET_NAME}
   PRIVATE OVR
           SampleCommon
-          SampleXrFramewok
+          native_app_glue
           openxr_loader
           android
           log
