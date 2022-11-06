@@ -44,6 +44,7 @@ add_library(
   XrApp.cpp
   HandTracking.cpp
   HandRenderer.cpp
+  Hand.cpp
   Input/HandMaskRenderer.cpp
   Input/HandRenderer.cpp
   Render/Framebuffer.cpp)
