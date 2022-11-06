@@ -15,7 +15,7 @@ rights reserved.
 #include <openxr/openxr.h>
 
 #include "XrApp.h"
-#include "XrHands.h"
+#include "HandsManager.h"
 
 #include "Input/AxisRenderer.h"
 #include "Input/ControllerRenderer.h"
@@ -29,7 +29,7 @@ rights reserved.
 
 class XrHandsApp : public OVRFW::XrApp
 {
-    XrHands *_hands = nullptr;
+    HandsManager *_hands = nullptr;
 
     /// Hands - FB mesh rendering extensions
     PFN_xrGetHandMeshFB xrGetHandMeshFB_ = nullptr;
@@ -147,7 +147,7 @@ public:
                       [=]()
                       { renderCapsulesR_ = !renderCapsulesR_; });
 
-        _hands = XrHands::Create(GetInstance(), GetSystemId());
+        _hands = HandsManager::Create(GetInstance(), GetSystemId());
         if (!_hands)
         {
             return false;

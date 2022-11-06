@@ -1,4 +1,4 @@
-#include "XrHands.h"
+#include "HandsManager.h"
 #include "XrApp.h"
 #include <openxr/openxr.h>
 
@@ -30,7 +30,7 @@ void HandTracker::Update(XrSpace &space, XrTime time)
     locateInfo.time = ToXrTime(time);
 }
 
-XrHands::XrHands(XrInstance &Instance)
+HandsManager::HandsManager(XrInstance &Instance)
 {
     /// Hook up extensions for hand tracking
     OXR(xrGetInstanceProcAddr(
@@ -43,11 +43,11 @@ XrHands::XrHands(XrInstance &Instance)
                               (PFN_xrVoidFunction *)(&xrLocateHandJointsEXT_)));
 }
 
-XrHands::~XrHands()
+HandsManager::~HandsManager()
 {
 }
 
-XrHands *XrHands::Create(XrInstance &Instance, XrSystemId &systemId)
+HandsManager *HandsManager::Create(XrInstance &Instance, XrSystemId &systemId)
 {
     // Inspect hand tracking system properties
     XrSystemHandTrackingPropertiesEXT handTrackingSystemProperties{
@@ -67,11 +67,11 @@ XrHands *XrHands::Create(XrInstance &Instance, XrSystemId &systemId)
         ALOG("xrGetSystemProperties XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT "
              "OK - initiallizing hand tracking...");
 
-        return new XrHands(Instance);
+        return new HandsManager(Instance);
     }
 }
 
-void XrHands::OnSessionInit(XrInstance &Instance, XrSession &Session)
+void HandsManager::OnSessionInit(XrInstance &Instance, XrSession &Session)
 {
     OXR(xrCreateHandTrackerEXT_(Session, left_.CreateInfo(XR_HAND_LEFT_EXT), &left_.handTracker));
     ALOG("xrCreateHandTrackerEXT handTrackerL_=%llx",
@@ -82,7 +82,7 @@ void XrHands::OnSessionInit(XrInstance &Instance, XrSession &Session)
          (long long)right_.handTracker);
 }
 
-void XrHands::Shutdown(XrInstance &Instance)
+void HandsManager::Shutdown(XrInstance &Instance)
 {
     if (xrDestroyHandTrackerEXT_)
     {
@@ -91,7 +91,7 @@ void XrHands::Shutdown(XrInstance &Instance)
     }
 }
 
-void XrHands::Update(XrInstance &Instance, XrSpace &space, XrTime time)
+void HandsManager::Update(XrInstance &Instance, XrSpace &space, XrTime time)
 {
     /// L
     left_.Update(space, time);

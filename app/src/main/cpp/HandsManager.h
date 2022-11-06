@@ -26,21 +26,21 @@ struct HandTracker
     void Update(XrSpace &space, XrTime time);
 };
 
-class XrHands
+class HandsManager
 {
     /// Hands - extension functions
     PFN_xrCreateHandTrackerEXT xrCreateHandTrackerEXT_ = nullptr;
     PFN_xrDestroyHandTrackerEXT xrDestroyHandTrackerEXT_ = nullptr;
     PFN_xrLocateHandJointsEXT xrLocateHandJointsEXT_ = nullptr;
 
-    XrHands(XrInstance &Instance);
+    HandsManager(XrInstance &Instance);
 
 public:
-    ~XrHands();
+    ~HandsManager();
     HandTracker left_;
     HandTracker right_;
 
-    static XrHands *Create(XrInstance &Instance, XrSystemId &systemId);
+    static HandsManager *Create(XrInstance &Instance, XrSystemId &systemId);
     void OnSessionInit(XrInstance &Instance, XrSession &Session);
     void Shutdown(XrInstance &Instance);
     void Update(XrInstance &Instance, XrSpace &space, XrTime time);
