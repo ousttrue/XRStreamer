@@ -16,6 +16,23 @@ struct HandRenderer
     bool renderCapsules = true;
     std::vector<OVRFW::GeometryRenderer> handJointRenderers;
     std::vector<OVRFW::GeometryRenderer> handCapsuleRenderers;
+    XrHandTrackingMeshFB mesh;
+    std::vector<XrPosef> jointBindLocations;
+    std::vector<XrHandJointEXT> parentData;
+    std::vector<float> jointRadii;
+    std::vector<XrVector3f> vertexPositions;
+    std::vector<XrVector3f> vertexNormals;
+    std::vector<XrVector2f> vertexUVs;
+    std::vector<XrVector4sFB> vertexBlendIndices;
+    std::vector<XrVector4f> vertexBlendWeights;
+    std::vector<int16_t> indices;
+    XrHandTrackingCapsulesStateFB capsuleState;
+
+    bool OnSessionInit(bool isLeft);
+    void OnMeshSize();
+    void OnMeshData(struct HandTracker *hand,
+                    const OVR::Vector4f &jointColor_,
+                    const OVR::Vector4f &capsuleColor_);
 
     void Shutdown()
     {

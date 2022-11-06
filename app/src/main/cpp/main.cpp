@@ -149,165 +149,52 @@ public:
         ui_.Shutdown();
     }
 
+    bool InitA_Hand(bool isLeft, HandRenderer *renderer, HandTracker *hand)
+    {
+        // auto isLeft = handIndex == 0;
+        // auto renderer = isLeft ? &rendererL_ : &rendererR_;
+        // auto hand = isLeft ? &hands_->left_ : &hands_->right_;
+
+        /// Alias everything for initialization
+        if (!renderer->OnSessionInit(isLeft))
+        {
+            ALOG("AppInit::Init controller(%d) renderer FAILED.", isLeft);
+            return false;
+        }
+        /// two-call pattern for mesh data
+        /// call 1 - figure out sizes
+        /// get mesh sizes
+        OXR(xrGetHandMeshFB_(hand->handTracker, &renderer->mesh));
+        renderer->OnMeshSize();
+        /// call 2 - fill in the data
+        /// get mesh data
+        OXR(xrGetHandMeshFB_(hand->handTracker, &renderer->mesh));
+        renderer->OnMeshData(hand, jointColor_, capsuleColor_);
+
+        return true;
+    }
+
     virtual bool SessionInit() override
     {
         /// Disable scene navitgation
         GetScene().SetFootPos({0.0f, 0.0f, 0.0f});
         this->FreeMove = false;
-        /// Init session bound objects
-        if (false == rendererL_.controllerRender.Init(true))
-        {
-            ALOG("AppInit::Init L controller renderer FAILED.");
-            return false;
-        }
-        if (false == rendererR_.controllerRender.Init(false))
-        {
-            ALOG("AppInit::Init R controller renderer FAILED.");
-            return false;
-        }
-        beamRenderer_.Init(GetFileSys(), nullptr, OVR::Vector4f(1.0f), 1.0f);
 
-        /// Hand rendering
-        rendererL_.axisRenderer.Init();
-        rendererR_.axisRenderer.Init();
+        beamRenderer_.Init(GetFileSys(), nullptr, OVR::Vector4f(1.0f), 1.0f);
 
         /// Hand Trackers
         hands_->OnSessionInit(GetInstance(), GetSession());
-        // if (xrCreateHandTrackerEXT_)
+
+        /// Setup skinning meshes for both hands
+        if (xrGetHandMeshFB_)
         {
-            /// Setup skinning meshes for both hands
-            if (xrGetHandMeshFB_)
+            if (!InitA_Hand(true, &rendererL_, &hands_->left_))
             {
-                for (int handIndex = 0; handIndex < 2; ++handIndex)
-                {
-                    /// Alias everything for initialization
-                    const bool isLeft = (handIndex == 0);
-                    auto &handTracker = isLeft ? hands_->left_.handTracker : hands_->right_.handTracker;
-                    auto &handRenderer = isLeft ? rendererL_.handRenderer : rendererR_.handRenderer;
-                    auto &handJointRenderers =
-                        isLeft ? rendererL_.handJointRenderers : rendererR_.handJointRenderers;
-                    auto *jointLocations = isLeft ? hands_->left_.jointLocations : hands_->right_.jointLocations;
-                    auto &handCapsuleRenderers =
-                        isLeft ? rendererL_.handCapsuleRenderers : rendererR_.handCapsuleRenderers;
-
-                    /// two-call pattern for mesh data
-                    /// call 1 - figure out sizes
-
-                    /// mesh
-                    XrHandTrackingMeshFB mesh{XR_TYPE_HAND_TRACKING_MESH_FB};
-                    mesh.next = nullptr;
-                    /// mesh - skeleton
-                    mesh.jointCapacityInput = 0;
-                    mesh.jointCountOutput = 0;
-                    mesh.jointBindPoses = nullptr;
-                    mesh.jointRadii = nullptr;
-                    mesh.jointParents = nullptr;
-                    /// mesh - vertex
-                    mesh.vertexCapacityInput = 0;
-                    mesh.vertexCountOutput = 0;
-                    mesh.vertexPositions = nullptr;
-                    mesh.vertexNormals = nullptr;
-                    mesh.vertexUVs = nullptr;
-                    mesh.vertexBlendIndices = nullptr;
-                    mesh.vertexBlendWeights = nullptr;
-                    /// mesh - index
-                    mesh.indexCapacityInput = 0;
-                    mesh.indexCountOutput = 0;
-                    mesh.indices = nullptr;
-                    /// get mesh sizes
-                    OXR(xrGetHandMeshFB_(handTracker, &mesh));
-
-                    /// mesh storage - update sizes
-                    mesh.jointCapacityInput = mesh.jointCountOutput;
-                    mesh.vertexCapacityInput = mesh.vertexCountOutput;
-                    mesh.indexCapacityInput = mesh.indexCountOutput;
-                    /// skeleton
-                    std::vector<XrPosef> jointBindLocations;
-                    std::vector<XrHandJointEXT> parentData;
-                    std::vector<float> jointRadii;
-                    jointBindLocations.resize(mesh.jointCountOutput);
-                    parentData.resize(mesh.jointCountOutput);
-                    jointRadii.resize(mesh.jointCountOutput);
-                    mesh.jointBindPoses = jointBindLocations.data();
-                    mesh.jointParents = parentData.data();
-                    mesh.jointRadii = jointRadii.data();
-                    /// vertex
-                    std::vector<XrVector3f> vertexPositions;
-                    std::vector<XrVector3f> vertexNormals;
-                    std::vector<XrVector2f> vertexUVs;
-                    std::vector<XrVector4sFB> vertexBlendIndices;
-                    std::vector<XrVector4f> vertexBlendWeights;
-                    vertexPositions.resize(mesh.vertexCountOutput);
-                    vertexNormals.resize(mesh.vertexCountOutput);
-                    vertexUVs.resize(mesh.vertexCountOutput);
-                    vertexBlendIndices.resize(mesh.vertexCountOutput);
-                    vertexBlendWeights.resize(mesh.vertexCountOutput);
-                    mesh.vertexPositions = vertexPositions.data();
-                    mesh.vertexNormals = vertexNormals.data();
-                    mesh.vertexUVs = vertexUVs.data();
-                    mesh.vertexBlendIndices = vertexBlendIndices.data();
-                    mesh.vertexBlendWeights = vertexBlendWeights.data();
-                    /// index
-                    std::vector<int16_t> indices;
-                    indices.resize(mesh.indexCountOutput);
-                    mesh.indices = indices.data();
-
-                    /// call 2 - fill in the data
-                    /// chain capsules
-                    XrHandTrackingCapsulesStateFB capsuleState{
-                        XR_TYPE_HAND_TRACKING_CAPSULES_STATE_FB};
-                    capsuleState.next = nullptr;
-                    mesh.next = &capsuleState;
-
-                    /// get mesh data
-                    OXR(xrGetHandMeshFB_(handTracker, &mesh));
-                    /// init renderer
-                    handRenderer.Init(&mesh, true);
-                    /// Render jointRadius for all left hand joints
-                    {
-                        handJointRenderers.resize(XR_HAND_JOINT_COUNT_EXT);
-                        for (int i = 0; i < XR_HAND_JOINT_COUNT_EXT; ++i)
-                        {
-                            const OVR::Posef pose = FromXrPosef(jointLocations[i].pose);
-                            OVRFW::GeometryRenderer &gr = handJointRenderers[i];
-                            gr.Init(OVRFW::BuildTesselatedCapsuleDescriptor(
-                                mesh.jointRadii[i], 0.0f, 7, 7));
-                            gr.SetPose(pose);
-                            gr.DiffuseColor = jointColor_;
-                        }
-                    }
-                    /// One time init for capsules
-                    {
-                        handCapsuleRenderers.resize(XR_FB_HAND_TRACKING_CAPSULE_COUNT);
-                        for (int i = 0; i < XR_FB_HAND_TRACKING_CAPSULE_COUNT; ++i)
-                        {
-                            const OVR::Vector3f p0 =
-                                FromXrVector3f(capsuleState.capsules[i].points[0]);
-                            const OVR::Vector3f p1 =
-                                FromXrVector3f(capsuleState.capsules[i].points[1]);
-                            const OVR::Vector3f d = (p1 - p0);
-                            const float h = d.Length();
-                            const float r = capsuleState.capsules[i].radius;
-                            const OVR::Quatf look = OVR::Quatf::LookRotation(d, {0, 1, 0});
-                            OVRFW::GeometryRenderer &gr = handCapsuleRenderers[i];
-                            gr.Init(OVRFW::BuildTesselatedCapsuleDescriptor(r, h, 7, 7));
-                            gr.SetPose(OVR::Posef(look, p0));
-                            gr.DiffuseColor = capsuleColor_;
-                        }
-                    }
-                    /// Print hierarchy
-                    {
-                        for (int i = 0; i < XR_HAND_JOINT_COUNT_EXT; ++i)
-                        {
-                            const OVR::Posef pose = FromXrPosef(jointLocations[i].pose);
-                            ALOG(" { {%.6f, %.6f, %.6f},  {%.6f, %.6f, %.6f, %.6f} } // "
-                                 "joint = %d, parent = %d",
-                                 pose.Translation.x, pose.Translation.y, pose.Translation.z,
-                                 pose.Rotation.x, pose.Rotation.y, pose.Rotation.z,
-                                 pose.Rotation.w, i, (int)parentData[i]);
-                        }
-                    }
-                }
+                return false;
+            }
+            if (!InitA_Hand(false, &rendererR_, &hands_->right_))
+            {
+                return false;
             }
         }
 
