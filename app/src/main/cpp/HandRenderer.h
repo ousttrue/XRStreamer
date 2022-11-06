@@ -30,7 +30,7 @@ struct HandRenderer
 
     bool OnSessionInit(bool isLeft);
     void OnMeshSize();
-    void OnMeshData(struct HandTracker *hand,
+    void OnMeshData(struct HandTracking *hand,
                     const OVR::Vector4f &jointColor_,
                     const OVR::Vector4f &capsuleColor_);
 

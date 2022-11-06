@@ -1,7 +1,7 @@
 #pragma once
 #include <openxr/openxr.h>
 
-struct HandTracker
+struct HandTracking
 {
     XrHandTrackerCreateInfoEXT createInfo;
     XrHandTrackerEXT handTracker = XR_NULL_HANDLE;
@@ -24,24 +24,4 @@ struct HandTracker
     }
 
     void Update(XrSpace &space, XrTime time);
-};
-
-class HandsManager
-{
-    /// Hands - extension functions
-    PFN_xrCreateHandTrackerEXT xrCreateHandTrackerEXT_ = nullptr;
-    PFN_xrDestroyHandTrackerEXT xrDestroyHandTrackerEXT_ = nullptr;
-    PFN_xrLocateHandJointsEXT xrLocateHandJointsEXT_ = nullptr;
-
-    HandsManager(XrInstance &Instance);
-
-public:
-    ~HandsManager();
-    HandTracker left_;
-    HandTracker right_;
-
-    static HandsManager *Create(XrInstance &Instance, XrSystemId &systemId);
-    void OnSessionInit(XrInstance &Instance, XrSession &Session);
-    void Shutdown(XrInstance &Instance);
-    void Update(XrInstance &Instance, XrSpace &space, XrTime time);
 };

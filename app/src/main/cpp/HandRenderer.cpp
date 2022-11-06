@@ -1,5 +1,5 @@
 #include "HandRenderer.h"
-#include "HandsManager.h"
+#include "HandTracking.h"
 #include "XrApp.h"
 
 bool HandRenderer::OnSessionInit(bool isLeft)
@@ -70,7 +70,7 @@ void HandRenderer::OnMeshSize()
     mesh.next = &capsuleState;
 }
 
-void HandRenderer::OnMeshData(HandTracker *hand, const OVR::Vector4f &jointColor_,
+void HandRenderer::OnMeshData(HandTracking *hand, const OVR::Vector4f &jointColor_,
                               const OVR::Vector4f &capsuleColor_
 
 )

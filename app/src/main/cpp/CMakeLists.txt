@@ -42,7 +42,7 @@ add_library(
   ${TARGET_NAME} SHARED
   main.cpp
   XrApp.cpp
-  HandsManager.cpp
+  HandTracking.cpp
   HandRenderer.cpp
   Input/HandMaskRenderer.cpp
   Input/HandRenderer.cpp
