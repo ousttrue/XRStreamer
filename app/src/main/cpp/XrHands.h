@@ -1,6 +1,31 @@
 #pragma once
 #include <openxr/openxr.h>
 
+struct HandTracker
+{
+    XrHandTrackerCreateInfoEXT createInfo;
+    XrHandTrackerEXT handTracker = XR_NULL_HANDLE;
+    XrHandTrackingScaleFB scale;
+    XrHandTrackingCapsulesStateFB capsuleState;
+    XrHandTrackingAimStateFB aimState;
+    XrHandJointLocationsEXT locations;
+    XrHandJointLocationEXT jointLocations[XR_HAND_JOINT_COUNT_EXT];
+    XrHandJointVelocityEXT jointVelocities[XR_HAND_JOINT_COUNT_EXT];
+    XrHandJointVelocitiesEXT velocities;
+    XrHandJointsLocateInfoEXT locateInfo;
+
+    XrHandTrackerCreateInfoEXT *CreateInfo(XrHandEXT hand)
+    {
+        createInfo = {
+            XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT};
+        createInfo.handJointSet = XR_HAND_JOINT_SET_DEFAULT_EXT;
+        createInfo.hand = hand;
+        return &createInfo;
+    }
+
+    void Update(XrSpace &space, XrTime time);
+};
+
 class XrHands
 {
     /// Hands - extension functions
@@ -12,24 +37,8 @@ class XrHands
 
 public:
     ~XrHands();
-    /// Hands - tracker handles
-    XrHandTrackerEXT handTrackerL_ = XR_NULL_HANDLE;
-    XrHandTrackerEXT handTrackerR_ = XR_NULL_HANDLE;
-
-    XrHandTrackingScaleFB scaleL;
-    XrHandTrackingCapsulesStateFB capsuleStateL;
-    XrHandTrackingAimStateFB aimStateL;
-    XrHandTrackingScaleFB scaleR;
-    XrHandTrackingCapsulesStateFB capsuleStateR;
-    XrHandTrackingAimStateFB aimStateR;
-    XrHandJointLocationsEXT locationsL;
-    XrHandJointLocationsEXT locationsR;
-
-    /// Hands - data buffers
-    XrHandJointLocationEXT jointLocationsL_[XR_HAND_JOINT_COUNT_EXT];
-    XrHandJointLocationEXT jointLocationsR_[XR_HAND_JOINT_COUNT_EXT];
-    XrHandJointVelocityEXT jointVelocitiesL_[XR_HAND_JOINT_COUNT_EXT];
-    XrHandJointVelocityEXT jointVelocitiesR_[XR_HAND_JOINT_COUNT_EXT];
+    HandTracker left_;
+    HandTracker right_;
 
     static XrHands *Create(XrInstance &Instance, XrSystemId &systemId);
     void OnSessionInit(XrInstance &Instance, XrSession &Session);

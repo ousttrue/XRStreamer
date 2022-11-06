@@ -148,10 +148,10 @@ public:
                       { renderCapsulesR_ = !renderCapsulesR_; });
 
         _hands = XrHands::Create(GetInstance(), GetSystemId());
-        if(!_hands)
+        if (!_hands)
         {
             return false;
-        }       
+        }
 
         /// Hook up extensions for hand rendering
         OXR(xrGetInstanceProcAddr(GetInstance(), "xrGetHandMeshFB",
@@ -204,11 +204,11 @@ public:
                 {
                     /// Alias everything for initialization
                     const bool isLeft = (handIndex == 0);
-                    auto &handTracker = isLeft ? _hands->handTrackerL_ : _hands->handTrackerR_;
+                    auto &handTracker = isLeft ? _hands->left_.handTracker : _hands->right_.handTracker;
                     auto &handRenderer = isLeft ? handRendererL_ : handRendererR_;
                     auto &handJointRenderers =
                         isLeft ? handJointRenderersL_ : handJointRenderersR_;
-                    auto *jointLocations = isLeft ? _hands->jointLocationsL_ : _hands->jointLocationsR_;
+                    auto *jointLocations = isLeft ? _hands->left_.jointLocations : _hands->right_.jointLocations;
                     auto &handCapsuleRenderers =
                         isLeft ? handCapsuleRenderersL_ : handCapsuleRenderersR_;
 
@@ -393,82 +393,82 @@ public:
             handTrackedL_ = false;
             handTrackedR_ = false;
 
-            if (_hands->locationsL.isActive)
+            if (_hands->left_.locations.isActive)
             {
                 for (int i = 0; i < XR_FB_HAND_TRACKING_CAPSULE_COUNT; ++i)
                 {
                     const OVR::Vector3f p0 =
-                        FromXrVector3f(_hands->capsuleStateL.capsules[i].points[0]);
+                        FromXrVector3f(_hands->left_.capsuleState.capsules[i].points[0]);
                     const OVR::Vector3f p1 =
-                        FromXrVector3f(_hands->capsuleStateL.capsules[i].points[1]);
+                        FromXrVector3f(_hands->left_.capsuleState.capsules[i].points[1]);
                     const OVR::Vector3f d = (p1 - p0);
                     const OVR::Quatf look = OVR::Quatf::LookRotation(d, {0, 1, 0});
                     /// apply inverse scale here
-                    const float h = d.Length() / _hands->scaleL.currentOutput;
+                    const float h = d.Length() / _hands->left_.scale.currentOutput;
                     const OVR::Vector3f start =
                         p0 + look.Rotate(OVR::Vector3f(0, 0, -h / 2));
                     OVRFW::GeometryRenderer &gr = handCapsuleRenderersL_[i];
-                    gr.SetScale(OVR::Vector3f(_hands->scaleL.currentOutput));
+                    gr.SetScale(OVR::Vector3f(_hands->left_.scale.currentOutput));
                     gr.SetPose(OVR::Posef(look, start));
                     gr.Update();
                 }
                 for (int i = 0; i < XR_HAND_JOINT_COUNT_EXT; ++i)
                 {
-                    if ((_hands->jointLocationsL_[i].locationFlags & isValid) != 0)
+                    if ((_hands->left_.jointLocations[i].locationFlags & isValid) != 0)
                     {
-                        const auto p = FromXrPosef(_hands->jointLocationsL_[i].pose);
+                        const auto p = FromXrPosef(_hands->left_.jointLocations[i].pose);
                         handJointsL.push_back(p);
                         handTrackedL_ = true;
                         OVRFW::GeometryRenderer &gr = handJointRenderersL_[i];
-                        gr.SetScale(OVR::Vector3f(_hands->scaleL.currentOutput));
+                        gr.SetScale(OVR::Vector3f(_hands->left_.scale.currentOutput));
                         gr.SetPose(p);
                         gr.Update();
                     }
                 }
-                handRendererL_.Update(&_hands->jointLocationsL_[0]);
-                const bool didPinch = (_hands->aimStateL.status &
+                handRendererL_.Update(&_hands->left_.jointLocations[0]);
+                const bool didPinch = (_hands->left_.aimState.status &
                                        XR_HAND_TRACKING_AIM_INDEX_PINCHING_BIT_FB) != 0;
-                ui_.AddHitTestRay(FromXrPosef(_hands->aimStateL.aimPose),
+                ui_.AddHitTestRay(FromXrPosef(_hands->left_.aimState.aimPose),
                                   didPinch && !lastFrameClickedL_);
                 lastFrameClickedL_ = didPinch;
             }
-            if (_hands->locationsR.isActive)
+            if (_hands->right_.locations.isActive)
             {
                 for (int i = 0; i < XR_FB_HAND_TRACKING_CAPSULE_COUNT; ++i)
                 {
                     const OVR::Vector3f p0 =
-                        FromXrVector3f(_hands->capsuleStateR.capsules[i].points[0]);
+                        FromXrVector3f(_hands->right_.capsuleState.capsules[i].points[0]);
                     const OVR::Vector3f p1 =
-                        FromXrVector3f(_hands->capsuleStateR.capsules[i].points[1]);
+                        FromXrVector3f(_hands->right_.capsuleState.capsules[i].points[1]);
                     const OVR::Vector3f d = (p1 - p0);
                     const OVR::Quatf look = OVR::Quatf::LookRotation(d, {0, 1, 0});
                     /// apply inverse scale here
-                    const float h = d.Length() / _hands->scaleR.currentOutput;
+                    const float h = d.Length() / _hands->right_.scale.currentOutput;
                     const OVR::Vector3f start =
                         p0 + look.Rotate(OVR::Vector3f(0, 0, -h / 2));
                     OVRFW::GeometryRenderer &gr = handCapsuleRenderersR_[i];
-                    gr.SetScale(OVR::Vector3f(_hands->scaleR.currentOutput));
+                    gr.SetScale(OVR::Vector3f(_hands->right_.scale.currentOutput));
                     gr.SetPose(OVR::Posef(look, start));
                     gr.Update();
                 }
                 for (int i = 0; i < XR_HAND_JOINT_COUNT_EXT; ++i)
                 {
-                    if ((_hands->jointLocationsR_[i].locationFlags & isValid) != 0)
+                    if ((_hands->right_.jointLocations[i].locationFlags & isValid) != 0)
                     {
-                        const auto p = FromXrPosef(_hands->jointLocationsR_[i].pose);
+                        const auto p = FromXrPosef(_hands->right_.jointLocations[i].pose);
                         handJointsR.push_back(p);
                         handTrackedR_ = true;
                         OVRFW::GeometryRenderer &gr = handJointRenderersR_[i];
-                        gr.SetScale(OVR::Vector3f(_hands->scaleR.currentOutput));
+                        gr.SetScale(OVR::Vector3f(_hands->right_.scale.currentOutput));
                         gr.SetPose(p);
                         gr.Update();
                     }
                 }
-                handRendererR_.Update(&_hands->jointLocationsR_[0]);
-                const bool didPinch = (_hands->aimStateR.status &
+                handRendererR_.Update(&_hands->right_.jointLocations[0]);
+                const bool didPinch = (_hands->right_.aimState.status &
                                        XR_HAND_TRACKING_AIM_INDEX_PINCHING_BIT_FB) != 0;
 
-                ui_.AddHitTestRay(FromXrPosef(_hands->aimStateR.aimPose),
+                ui_.AddHitTestRay(FromXrPosef(_hands->right_.aimState.aimPose),
                                   didPinch && !lastFrameClickedR_);
                 lastFrameClickedR_ = didPinch;
             }
