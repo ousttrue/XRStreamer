@@ -16,21 +16,13 @@ rights reserved.
 
 #include "XrApp.h"
 #include "HandsManager.h"
+#include "HandRenderer.h"
 
-#include "Input/AxisRenderer.h"
-#include "Input/ControllerRenderer.h"
-#include "Input/HandRenderer.h"
 #include "Input/SkeletonRenderer.h"
 #include "Input/TinyUI.h"
-#include "Render/GeometryRenderer.h"
 #include "Render/SimpleBeamRenderer.h"
 
 #define FORCE_ONLY_SIMPLE_CONTROLLER_PROFILE
-
-class HandRenderer
-{
-
-};
 
 class XrHandsApp : public OVRFW::XrApp
 {
@@ -39,34 +31,15 @@ class XrHandsApp : public OVRFW::XrApp
     /// Hands - FB mesh rendering extensions
     PFN_xrGetHandMeshFB xrGetHandMeshFB_ = nullptr;
 
-    OVRFW::ControllerRenderer controllerRenderL_;
-    OVRFW::ControllerRenderer controllerRenderR_;
-    OVRFW::HandRenderer handRendererL_;
-    OVRFW::HandRenderer handRendererR_;
+    HandRenderer rendererL_;
+    HandRenderer rendererR_;
+
     OVRFW::TinyUI ui_;
     OVRFW::SimpleBeamRenderer beamRenderer_;
     std::vector<OVRFW::ovrBeamRenderer::handle_t> beams_;
-    OVRFW::ovrAxisRenderer axisRendererL_;
-    OVRFW::ovrAxisRenderer axisRendererR_;
-    bool handTrackedL_ = false;
-    bool handTrackedR_ = false;
-
-    bool lastFrameClickedL_ = false;
-    bool lastFrameClickedR_ = false;
 
     OVR::Vector4f jointColor_{0.4, 0.5, 0.2, 0.5};
     OVR::Vector4f capsuleColor_{0.4, 0.2, 0.2, 0.5};
-
-    bool renderMeshL_ = true;
-    bool renderMeshR_ = true;
-    bool renderJointsL_ = true;
-    bool renderJointsR_ = true;
-    bool renderCapsulesL_ = true;
-    bool renderCapsulesR_ = true;
-    std::vector<OVRFW::GeometryRenderer> handJointRenderersL_;
-    std::vector<OVRFW::GeometryRenderer> handJointRenderersR_;
-    std::vector<OVRFW::GeometryRenderer> handCapsuleRenderersL_;
-    std::vector<OVRFW::GeometryRenderer> handCapsuleRenderersR_;
 
 public:
     XrHandsApp()
@@ -133,24 +106,24 @@ public:
                       { BackgroundColor = OVR::Vector4f(0.0f, 0.25f, 1.0f, 1.0f); });
 
         ui_.AddButton("Mesh L", {-1.0f, 1.75f, -2.0f}, {200.0f, 100.0f},
-                      [=]()
-                      { renderMeshL_ = !renderMeshL_; });
+                      [&r = rendererL_]()
+                      { r.renderMesh = !r.renderMesh; });
         ui_.AddButton("Joints L", {-1.0f, 2.0f, -2.0f}, {200.0f, 100.0f},
-                      [=]()
-                      { renderJointsL_ = !renderJointsL_; });
+                      [&r = rendererL_]()
+                      { r.renderJoints = !r.renderJoints; });
         ui_.AddButton("Capsules L", {-1.0f, 2.25f, -2.0f}, {200.0f, 100.0f},
-                      [=]()
-                      { renderCapsulesL_ = !renderCapsulesL_; });
+                      [&r = rendererL_]()
+                      { r.renderCapsules = !r.renderCapsules; });
 
         ui_.AddButton("Mesh R", {1.20f, 1.75f, -2.0f}, {200.0f, 100.0f},
-                      [=]()
-                      { renderMeshR_ = !renderMeshR_; });
+                      [&r = rendererR_]()
+                      { r.renderMesh = !r.renderMesh; });
         ui_.AddButton("Joints R", {1.20f, 2.0f, -2.0f}, {200.0f, 100.0f},
-                      [=]()
-                      { renderJointsR_ = !renderJointsR_; });
+                      [&r = rendererR_]()
+                      { r.renderJoints = !r.renderJoints; });
         ui_.AddButton("Capsules R", {1.20f, 2.25f, -2.0f}, {200.0f, 100.0f},
-                      [=]()
-                      { renderCapsulesR_ = !renderCapsulesR_; });
+                      [&r = rendererR_]()
+                      { r.renderCapsules = !r.renderCapsules; });
 
         hands_ = HandsManager::Create(GetInstance(), GetSystemId());
         if (!hands_)
@@ -182,12 +155,12 @@ public:
         GetScene().SetFootPos({0.0f, 0.0f, 0.0f});
         this->FreeMove = false;
         /// Init session bound objects
-        if (false == controllerRenderL_.Init(true))
+        if (false == rendererL_.controllerRender.Init(true))
         {
             ALOG("AppInit::Init L controller renderer FAILED.");
             return false;
         }
-        if (false == controllerRenderR_.Init(false))
+        if (false == rendererR_.controllerRender.Init(false))
         {
             ALOG("AppInit::Init R controller renderer FAILED.");
             return false;
@@ -195,8 +168,8 @@ public:
         beamRenderer_.Init(GetFileSys(), nullptr, OVR::Vector4f(1.0f), 1.0f);
 
         /// Hand rendering
-        axisRendererL_.Init();
-        axisRendererR_.Init();
+        rendererL_.axisRenderer.Init();
+        rendererR_.axisRenderer.Init();
 
         /// Hand Trackers
         hands_->OnSessionInit(GetInstance(), GetSession());
@@ -210,12 +183,12 @@ public:
                     /// Alias everything for initialization
                     const bool isLeft = (handIndex == 0);
                     auto &handTracker = isLeft ? hands_->left_.handTracker : hands_->right_.handTracker;
-                    auto &handRenderer = isLeft ? handRendererL_ : handRendererR_;
+                    auto &handRenderer = isLeft ? rendererL_.handRenderer : rendererR_.handRenderer;
                     auto &handJointRenderers =
-                        isLeft ? handJointRenderersL_ : handJointRenderersR_;
+                        isLeft ? rendererL_.handJointRenderers : rendererR_.handJointRenderers;
                     auto *jointLocations = isLeft ? hands_->left_.jointLocations : hands_->right_.jointLocations;
                     auto &handCapsuleRenderers =
-                        isLeft ? handCapsuleRenderersL_ : handCapsuleRenderersR_;
+                        isLeft ? rendererL_.handCapsuleRenderers : rendererR_.handCapsuleRenderers;
 
                     /// two-call pattern for mesh data
                     /// call 1 - figure out sizes
@@ -345,13 +318,9 @@ public:
     {
         /// Hand Tracker
         hands_->Shutdown(GetInstance());
-        controllerRenderL_.Shutdown();
-        controllerRenderR_.Shutdown();
         beamRenderer_.Shutdown();
-        axisRendererL_.Shutdown();
-        axisRendererR_.Shutdown();
-        handRendererL_.Shutdown();
-        handRendererR_.Shutdown();
+        rendererL_.Shutdown();
+        rendererR_.Shutdown();
     }
 
     // Update state
@@ -382,114 +351,113 @@ public:
 
         /// Hands
         hands_->Update(GetInstance(), GetStageSpace(), in.PredictedDisplayTime);
+
+        std::vector<OVR::Posef> handJointsL;
+        std::vector<OVR::Posef> handJointsR;
+
+        // Determine which joints are actually tracked
+        // XrSpaceLocationFlags isTracked =
+        // XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT
+        //    | XR_SPACE_LOCATION_POSITION_TRACKED_BIT;
+
+        // Tracked joints and computed joints can all be valid
+        XrSpaceLocationFlags isValid = XR_SPACE_LOCATION_ORIENTATION_VALID_BIT |
+                                       XR_SPACE_LOCATION_POSITION_VALID_BIT;
+
+        rendererL_.handTracked = false;
+        rendererR_.handTracked = false;
+
+        if (hands_->left_.locations.isActive)
         {
-            std::vector<OVR::Posef> handJointsL;
-            std::vector<OVR::Posef> handJointsR;
-
-            // Determine which joints are actually tracked
-            // XrSpaceLocationFlags isTracked =
-            // XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT
-            //    | XR_SPACE_LOCATION_POSITION_TRACKED_BIT;
-
-            // Tracked joints and computed joints can all be valid
-            XrSpaceLocationFlags isValid = XR_SPACE_LOCATION_ORIENTATION_VALID_BIT |
-                                           XR_SPACE_LOCATION_POSITION_VALID_BIT;
-
-            handTrackedL_ = false;
-            handTrackedR_ = false;
-
-            if (hands_->left_.locations.isActive)
+            for (int i = 0; i < XR_FB_HAND_TRACKING_CAPSULE_COUNT; ++i)
             {
-                for (int i = 0; i < XR_FB_HAND_TRACKING_CAPSULE_COUNT; ++i)
+                const OVR::Vector3f p0 =
+                    FromXrVector3f(hands_->left_.capsuleState.capsules[i].points[0]);
+                const OVR::Vector3f p1 =
+                    FromXrVector3f(hands_->left_.capsuleState.capsules[i].points[1]);
+                const OVR::Vector3f d = (p1 - p0);
+                const OVR::Quatf look = OVR::Quatf::LookRotation(d, {0, 1, 0});
+                /// apply inverse scale here
+                const float h = d.Length() / hands_->left_.scale.currentOutput;
+                const OVR::Vector3f start =
+                    p0 + look.Rotate(OVR::Vector3f(0, 0, -h / 2));
+                OVRFW::GeometryRenderer &gr = rendererL_.handCapsuleRenderers[i];
+                gr.SetScale(OVR::Vector3f(hands_->left_.scale.currentOutput));
+                gr.SetPose(OVR::Posef(look, start));
+                gr.Update();
+            }
+            for (int i = 0; i < XR_HAND_JOINT_COUNT_EXT; ++i)
+            {
+                if ((hands_->left_.jointLocations[i].locationFlags & isValid) != 0)
                 {
-                    const OVR::Vector3f p0 =
-                        FromXrVector3f(hands_->left_.capsuleState.capsules[i].points[0]);
-                    const OVR::Vector3f p1 =
-                        FromXrVector3f(hands_->left_.capsuleState.capsules[i].points[1]);
-                    const OVR::Vector3f d = (p1 - p0);
-                    const OVR::Quatf look = OVR::Quatf::LookRotation(d, {0, 1, 0});
-                    /// apply inverse scale here
-                    const float h = d.Length() / hands_->left_.scale.currentOutput;
-                    const OVR::Vector3f start =
-                        p0 + look.Rotate(OVR::Vector3f(0, 0, -h / 2));
-                    OVRFW::GeometryRenderer &gr = handCapsuleRenderersL_[i];
+                    const auto p = FromXrPosef(hands_->left_.jointLocations[i].pose);
+                    handJointsL.push_back(p);
+                    rendererL_.handTracked = true;
+                    OVRFW::GeometryRenderer &gr = rendererL_.handJointRenderers[i];
                     gr.SetScale(OVR::Vector3f(hands_->left_.scale.currentOutput));
-                    gr.SetPose(OVR::Posef(look, start));
+                    gr.SetPose(p);
                     gr.Update();
                 }
-                for (int i = 0; i < XR_HAND_JOINT_COUNT_EXT; ++i)
-                {
-                    if ((hands_->left_.jointLocations[i].locationFlags & isValid) != 0)
-                    {
-                        const auto p = FromXrPosef(hands_->left_.jointLocations[i].pose);
-                        handJointsL.push_back(p);
-                        handTrackedL_ = true;
-                        OVRFW::GeometryRenderer &gr = handJointRenderersL_[i];
-                        gr.SetScale(OVR::Vector3f(hands_->left_.scale.currentOutput));
-                        gr.SetPose(p);
-                        gr.Update();
-                    }
-                }
-                handRendererL_.Update(&hands_->left_.jointLocations[0]);
-                const bool didPinch = (hands_->left_.aimState.status &
-                                       XR_HAND_TRACKING_AIM_INDEX_PINCHING_BIT_FB) != 0;
-                ui_.AddHitTestRay(FromXrPosef(hands_->left_.aimState.aimPose),
-                                  didPinch && !lastFrameClickedL_);
-                lastFrameClickedL_ = didPinch;
             }
-            if (hands_->right_.locations.isActive)
-            {
-                for (int i = 0; i < XR_FB_HAND_TRACKING_CAPSULE_COUNT; ++i)
-                {
-                    const OVR::Vector3f p0 =
-                        FromXrVector3f(hands_->right_.capsuleState.capsules[i].points[0]);
-                    const OVR::Vector3f p1 =
-                        FromXrVector3f(hands_->right_.capsuleState.capsules[i].points[1]);
-                    const OVR::Vector3f d = (p1 - p0);
-                    const OVR::Quatf look = OVR::Quatf::LookRotation(d, {0, 1, 0});
-                    /// apply inverse scale here
-                    const float h = d.Length() / hands_->right_.scale.currentOutput;
-                    const OVR::Vector3f start =
-                        p0 + look.Rotate(OVR::Vector3f(0, 0, -h / 2));
-                    OVRFW::GeometryRenderer &gr = handCapsuleRenderersR_[i];
-                    gr.SetScale(OVR::Vector3f(hands_->right_.scale.currentOutput));
-                    gr.SetPose(OVR::Posef(look, start));
-                    gr.Update();
-                }
-                for (int i = 0; i < XR_HAND_JOINT_COUNT_EXT; ++i)
-                {
-                    if ((hands_->right_.jointLocations[i].locationFlags & isValid) != 0)
-                    {
-                        const auto p = FromXrPosef(hands_->right_.jointLocations[i].pose);
-                        handJointsR.push_back(p);
-                        handTrackedR_ = true;
-                        OVRFW::GeometryRenderer &gr = handJointRenderersR_[i];
-                        gr.SetScale(OVR::Vector3f(hands_->right_.scale.currentOutput));
-                        gr.SetPose(p);
-                        gr.Update();
-                    }
-                }
-                handRendererR_.Update(&hands_->right_.jointLocations[0]);
-                const bool didPinch = (hands_->right_.aimState.status &
-                                       XR_HAND_TRACKING_AIM_INDEX_PINCHING_BIT_FB) != 0;
-
-                ui_.AddHitTestRay(FromXrPosef(hands_->right_.aimState.aimPose),
-                                  didPinch && !lastFrameClickedR_);
-                lastFrameClickedR_ = didPinch;
-            }
-            axisRendererL_.Update(handJointsL);
-            axisRendererR_.Update(handJointsR);
+            rendererL_.handRenderer.Update(&hands_->left_.jointLocations[0]);
+            const bool didPinch = (hands_->left_.aimState.status &
+                                   XR_HAND_TRACKING_AIM_INDEX_PINCHING_BIT_FB) != 0;
+            ui_.AddHitTestRay(FromXrPosef(hands_->left_.aimState.aimPose),
+                              didPinch && !rendererL_.lastFrameClicked);
+            rendererL_.lastFrameClicked = didPinch;
         }
-
+        rendererL_.axisRenderer.Update(handJointsL);
         if (in.LeftRemoteTracked)
         {
-            controllerRenderL_.Update(in.LeftRemotePose);
+            rendererL_.controllerRender.Update(in.LeftRemotePose);
             const bool didPinch = in.LeftRemoteIndexTrigger > 0.5f;
             ui_.AddHitTestRay(in.LeftRemotePointPose, didPinch);
         }
+
+        if (hands_->right_.locations.isActive)
+        {
+            for (int i = 0; i < XR_FB_HAND_TRACKING_CAPSULE_COUNT; ++i)
+            {
+                const OVR::Vector3f p0 =
+                    FromXrVector3f(hands_->right_.capsuleState.capsules[i].points[0]);
+                const OVR::Vector3f p1 =
+                    FromXrVector3f(hands_->right_.capsuleState.capsules[i].points[1]);
+                const OVR::Vector3f d = (p1 - p0);
+                const OVR::Quatf look = OVR::Quatf::LookRotation(d, {0, 1, 0});
+                /// apply inverse scale here
+                const float h = d.Length() / hands_->right_.scale.currentOutput;
+                const OVR::Vector3f start =
+                    p0 + look.Rotate(OVR::Vector3f(0, 0, -h / 2));
+                OVRFW::GeometryRenderer &gr = rendererR_.handCapsuleRenderers[i];
+                gr.SetScale(OVR::Vector3f(hands_->right_.scale.currentOutput));
+                gr.SetPose(OVR::Posef(look, start));
+                gr.Update();
+            }
+            for (int i = 0; i < XR_HAND_JOINT_COUNT_EXT; ++i)
+            {
+                if ((hands_->right_.jointLocations[i].locationFlags & isValid) != 0)
+                {
+                    const auto p = FromXrPosef(hands_->right_.jointLocations[i].pose);
+                    handJointsR.push_back(p);
+                    rendererR_.handTracked = true;
+                    OVRFW::GeometryRenderer &gr = rendererR_.handJointRenderers[i];
+                    gr.SetScale(OVR::Vector3f(hands_->right_.scale.currentOutput));
+                    gr.SetPose(p);
+                    gr.Update();
+                }
+            }
+            rendererR_.handRenderer.Update(&hands_->right_.jointLocations[0]);
+            const bool didPinch = (hands_->right_.aimState.status &
+                                   XR_HAND_TRACKING_AIM_INDEX_PINCHING_BIT_FB) != 0;
+
+            ui_.AddHitTestRay(FromXrPosef(hands_->right_.aimState.aimPose),
+                              didPinch && !rendererR_.lastFrameClicked);
+            rendererR_.lastFrameClicked = didPinch;
+        }
+        rendererR_.axisRenderer.Update(handJointsR);
         if (in.RightRemoteTracked)
         {
-            controllerRenderR_.Update(in.RightRemotePose);
+            rendererR_.controllerRender.Update(in.RightRemotePose);
             const bool didPinch = in.RightRemoteIndexTrigger > 0.5f;
             ui_.AddHitTestRay(in.RightRemotePointPose, didPinch);
         }
@@ -508,66 +476,66 @@ public:
         /// Render controllers
         if (in.LeftRemoteTracked)
         {
-            controllerRenderL_.Render(out.Surfaces);
+            rendererL_.controllerRender.Render(out.Surfaces);
         }
+        /// Render hand axes
+        if (rendererL_.handTracked)
+        {
+            rendererL_.axisRenderer.Render(OVR::Matrix4f(), in, out);
+
+            if (rendererL_.renderJoints)
+            {
+                for (int i = 0; i < XR_HAND_JOINT_COUNT_EXT; ++i)
+                {
+                    OVRFW::GeometryRenderer &gr = rendererL_.handJointRenderers[i];
+                    gr.Render(out.Surfaces);
+                }
+            }
+
+            if (rendererL_.renderCapsules)
+            {
+                for (int i = 0; i < XR_FB_HAND_TRACKING_CAPSULE_COUNT; ++i)
+                {
+                    OVRFW::GeometryRenderer &gr = rendererL_.handCapsuleRenderers[i];
+                    gr.Render(out.Surfaces);
+                }
+            }
+
+            if (rendererL_.renderMesh)
+            {
+                rendererL_.handRenderer.Render(out.Surfaces);
+            }
+        }
+
         if (in.RightRemoteTracked)
         {
-            controllerRenderR_.Render(out.Surfaces);
+            rendererR_.controllerRender.Render(out.Surfaces);
         }
-
-        /// Render hand axes
-        if (handTrackedL_)
+        if (rendererR_.handTracked)
         {
-            axisRendererL_.Render(OVR::Matrix4f(), in, out);
+            rendererR_.axisRenderer.Render(OVR::Matrix4f(), in, out);
 
-            if (renderJointsL_)
+            if (rendererR_.renderJoints)
             {
                 for (int i = 0; i < XR_HAND_JOINT_COUNT_EXT; ++i)
                 {
-                    OVRFW::GeometryRenderer &gr = handJointRenderersL_[i];
+                    OVRFW::GeometryRenderer &gr = rendererR_.handJointRenderers[i];
                     gr.Render(out.Surfaces);
                 }
             }
 
-            if (renderCapsulesL_)
+            if (rendererR_.renderCapsules)
             {
                 for (int i = 0; i < XR_FB_HAND_TRACKING_CAPSULE_COUNT; ++i)
                 {
-                    OVRFW::GeometryRenderer &gr = handCapsuleRenderersL_[i];
+                    OVRFW::GeometryRenderer &gr = rendererR_.handCapsuleRenderers[i];
                     gr.Render(out.Surfaces);
                 }
             }
 
-            if (renderMeshL_)
+            if (rendererR_.renderMesh)
             {
-                handRendererL_.Render(out.Surfaces);
-            }
-        }
-        if (handTrackedR_)
-        {
-            axisRendererR_.Render(OVR::Matrix4f(), in, out);
-
-            if (renderJointsR_)
-            {
-                for (int i = 0; i < XR_HAND_JOINT_COUNT_EXT; ++i)
-                {
-                    OVRFW::GeometryRenderer &gr = handJointRenderersR_[i];
-                    gr.Render(out.Surfaces);
-                }
-            }
-
-            if (renderCapsulesR_)
-            {
-                for (int i = 0; i < XR_FB_HAND_TRACKING_CAPSULE_COUNT; ++i)
-                {
-                    OVRFW::GeometryRenderer &gr = handCapsuleRenderersR_[i];
-                    gr.Render(out.Surfaces);
-                }
-            }
-
-            if (renderMeshR_)
-            {
-                handRendererR_.Render(out.Surfaces);
+                rendererR_.handRenderer.Render(out.Surfaces);
             }
         }
 
