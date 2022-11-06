@@ -71,9 +71,7 @@ void HandRenderer::OnMeshSize()
 }
 
 void HandRenderer::OnMeshData(HandTracking *hand, const OVR::Vector4f &jointColor_,
-                              const OVR::Vector4f &capsuleColor_
-
-)
+                              const OVR::Vector4f &capsuleColor_)
 {
     /// init renderer
     handRenderer.Init(&mesh, true);
