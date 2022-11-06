@@ -38,7 +38,7 @@ subdirs(SampleCommon)
 # xrstreamer
 #
 set(TARGET_NAME xrstreamer)
-add_library(${TARGET_NAME} SHARED main.cpp XrApp.cpp Input/HandMaskRenderer.cpp
+add_library(${TARGET_NAME} SHARED main.cpp XrApp.cpp XrHands.cpp Input/HandMaskRenderer.cpp
                                   Input/HandRenderer.cpp Render/Framebuffer.cpp)
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_compile_options(${TARGET_NAME} PRIVATE -Wall -Werror)
